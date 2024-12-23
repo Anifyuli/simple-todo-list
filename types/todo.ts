@@ -1,5 +1,5 @@
-export interface Data {
+export interface ToDo {
   id: number;
   title: string;
-  completed: boolean;
+  completed: number;
 }

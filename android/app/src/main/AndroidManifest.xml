@@ -26,6 +26,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="myapp"/>
         <data android:scheme="com.anonymous.simpletodolist"/>
+        <data android:scheme="exp+simple-todo-list"/>
       </intent-filter>
     </activity>
   </application>

@@ -1,74 +1,102 @@
-import {
-  Text,
-  View,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  FlatList,
-} from "react-native";
+import { View, TextInput, StyleSheet, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react-native";
-import data, { Data } from "@/data/todos";
+import { useEffect, useState } from "react";
+import { useSQLiteContext } from "expo-sqlite";
+import ToDoListItem from "@/components/listTodosItem";
+import { ToDo } from "@/types/todo";
 
 export default function Index() {
-  const [todos, setTodos] = useState(data.sort((a, b) => b.id - a.id));
-  const [text, setText] = useState("");
+  const db = useSQLiteContext();
+  const [title, setTitle] = useState("");
+  const [todos, setTodos] = useState<ToDo[]>([]);
 
-  const addTodo = () => {
-    if (text.trim()) {
-      const newId = todos.length > 0 ? todos[0].id + 1 : 1;
-      setTodos([{ id: newId, title: text, completed: false }]);
-      setText("");
+  // Fetch todos when component mounts
+  useEffect(() => {
+    fetchTodos();
+  }, []);
+
+  const fetchTodos = async () => {
+    try {
+      const result = await db.getFirstAsync<{ count: number }>(
+        "SELECT COUNT(*) as count FROM todo"
+      );
+      console.log("Number of todos:", result?.count);
+
+      const todos = await db.getAllAsync<ToDo>(
+        "SELECT * FROM todo ORDER BY id DESC"
+      );
+      console.log("Todos fetched:", todos);
+      setTodos(todos);
+    } catch (error) {
+      console.error("Error fetching todos:", error);
+      Alert.alert("Error", "Could not load todos");
     }
   };
 
-  const toggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id == id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+  const addTodo = async () => {
+    if (!title.trim()) {
+      Alert.alert("Error", "Please enter a todo title");
+      return;
+    }
+
+    try {
+      await db.runAsync(`INSERT INTO todo (title, completed) VALUES (?, ?)`, [
+        title.trim(),
+        0,
+      ]);
+      setTitle(""); // Reset input
+      fetchTodos(); // Refresh list
+    } catch (error) {
+      console.error("Error adding todo:", error);
+      Alert.alert("Error", "Could not add todo");
+    }
   };
 
-  const removeTodo = (id: number) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+  const changeComplete = async (id: number) => {
+    try {
+      await db.runAsync(
+        `UPDATE todo SET completed = CASE WHEN completed = 0 THEN 1 ELSE 0 END WHERE id = ?`,
+        [id]
+      );
+      fetchTodos();
+    } catch (error) {
+      console.error("Error updating todo:", error);
+      Alert.alert("Error", "Could not update todo");
+    }
   };
 
-  const renderItem = ({ item }: { item: Data }) => (
-    <View style={style.todoItem}>
-      <Text
-        style={[style.todoText, item.completed && style.completedText]}
-        onPress={() => toggleTodo(item.id)}
-      >
-        {item.title}
-      </Text>
-      <Pressable onPress={() => removeTodo(item.id)}>
-        <Trash2 color="red" />
-      </Pressable>
-    </View>
-  );
+  const removeTodo = async (id: number) => {
+    try {
+      await db.runAsync(`DELETE FROM todos WHERE id = ?`, [id]);
+      fetchTodos();
+    } catch (error) {
+      console.error("Error deleting todo:", error);
+      Alert.alert("Error", "Could not delete todo");
+    }
+  };
 
   return (
     <SafeAreaView style={style.container}>
       <View style={style.inputContainer}>
         <TextInput
           style={style.input}
+          value={title}
+          onChangeText={setTitle}
           placeholder="Add a new todo"
           placeholderTextColor="gray"
-          value={text}
-          onChangeText={setText}
+          onSubmitEditing={addTodo}
         />
-        <Pressable onPress={addTodo} style={style.addButton}>
-          <Plus color="white" />
-        </Pressable>
       </View>
-      <FlatList
-        data={todos}
-        renderItem={renderItem}
-        keyExtractor={(item) => `${item.id}`}
-        contentContainerStyle={{ flexGrow: 1, marginHorizontal: 10 }}
-      />
+      <ScrollView style={style.scrollContainer}>
+        {todos.map((todo) => (
+          <ToDoListItem
+            key={todo.id}
+            todos={todo}
+            changeComplete={changeComplete}
+            removeTodo={removeTodo}
+          />
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -79,49 +107,21 @@ const style = StyleSheet.create({
     backgroundColor: "white",
   },
   inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
     padding: 10,
-    width: "auto",
-    marginHorizontal: "auto",
-    pointerEvents: "auto",
+    borderBottomWidth: 1,
+    borderBottomColor: "lightgray",
   },
   input: {
-    flex: 1,
     borderColor: "darkgray",
     borderWidth: 1,
     borderRadius: 5,
-    marginRight: 10,
-    fontSize: 18,
-    minWidth: 0,
-    color: "white",
-  },
-  addButton: {
-    backgroundColor: "blue",
-    borderRadius: 5,
     padding: 10,
-  },
-  todoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 4,
-    padding: 10,
-    borderBottomColor: "gray",
-    borderBottomWidth: 1,
-    width: "100%",
-    maxWidth: 1024,
-    marginHorizontal: "auto",
-    pointerEvents: "auto",
-  },
-  todoText: {
-    flex: 1,
     fontSize: 18,
     color: "black",
+    backgroundColor: "white",
   },
-  completedText: {
-    textDecorationLine: "line-through",
-    color: "gray",
+  scrollContainer: {
+    flex: 1,
+    padding: 10,
   },
 });
