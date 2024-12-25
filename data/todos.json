@@ -1,0 +1,24 @@
+{
+  "todos": [
+    {
+      "id": 1,
+      "title": "Wiping living room",
+      "completed": true
+    },
+    {
+      "title": "Buying lettuce",
+      "id": 2,
+      "completed": false
+    },
+    {
+      "id": 3,
+      "title": "Washing dish",
+      "completed": true
+    },
+    {
+      "id": 4,
+      "title": "Feeding lambs",
+      "completed": false
+    }
+  ]
+}

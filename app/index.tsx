@@ -7,33 +7,68 @@ import {
   FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useState, useEffect } from "react";
 import { Plus, Trash2 } from "lucide-react-native";
-import data, { Data } from "@/data/todos";
+import todoData from "@/data/todos.json";
+import { Data } from "@/types/todos";
 
 export default function Index() {
-  const [todos, setTodos] = useState(data.sort((a, b) => b.id - a.id));
+  const [todos, setTodos] = useState<Data[]>(
+    todoData.todos.sort((a, b) => b.id - a.id)
+  );
   const [text, setText] = useState("");
 
   const addTodo = () => {
     if (text.trim()) {
-      const newId = todos.length > 0 ? todos[0].id + 1 : 1;
-      setTodos([{ id: newId, title: text, completed: false }]);
+      const newId =
+        todos.length > 0 ? Math.max(...todos.map((t) => t.id)) + 1 : 1;
+      setTodos([{ id: newId, title: text, completed: false }, ...todos]);
       setText("");
     }
   };
 
   const toggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id == id ? { ...todo, completed: !todo.completed } : todo
-      )
+    const updatedTodos = todos.map((todo) =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
     );
+    setTodos(updatedTodos);
+    saveTodos(updatedTodos);
   };
 
   const removeTodo = (id: number) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+    const updatedTodos = todos.filter((todo) => todo.id !== id);
+    setTodos(updatedTodos);
+    saveTodos(updatedTodos);
   };
+
+  const saveTodos = async (updatedTodos: Data[]) => {
+    try {
+      await AsyncStorage.setItem(
+        "todos",
+        JSON.stringify({ todos: updatedTodos })
+      );
+    } catch (e) {
+      console.error("Failed to save todos:", e);
+    }
+  };
+
+  useEffect(() => {
+    const loadTodos = async () => {
+      try {
+        const savedTodos = await AsyncStorage.getItem("todos");
+        if (savedTodos) {
+          setTodos(
+            JSON.parse(savedTodos).todos.sort((a: any, b: any) => b.id - a.id)
+          );
+        }
+      } catch (e) {
+        console.error("Failed to load todos:", e);
+      }
+    };
+
+    loadTodos();
+  }, []);
 
   const renderItem = ({ item }: { item: Data }) => (
     <View style={style.todoItem}>
@@ -58,6 +93,7 @@ export default function Index() {
           placeholderTextColor="gray"
           value={text}
           onChangeText={setText}
+          onSubmitEditing={addTodo}
         />
         <Pressable onPress={addTodo} style={style.addButton}>
           <Plus color="white" />
@@ -93,9 +129,10 @@ const style = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 5,
     marginRight: 10,
+    padding: 10,
     fontSize: 18,
     minWidth: 0,
-    color: "white",
+    color: "black",
   },
   addButton: {
     backgroundColor: "blue",
