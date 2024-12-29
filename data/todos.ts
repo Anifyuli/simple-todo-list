@@ -4,7 +4,7 @@ export interface Data {
   completed: boolean;
 }
 
-const datas: Data[] = [
+let datas: Data[] = [
   {
     id: 1,
     title: "Wiping living room",
